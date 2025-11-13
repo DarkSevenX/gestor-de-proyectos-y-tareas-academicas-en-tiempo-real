@@ -6,7 +6,7 @@ dotenv.config()
 
 // Schema de validación para las variables de entorno
 const envSchema = z.object({
-  PORT: z.string().default('8000').transform(Number),
+  PORT: z.string().default(process.env.PORT || '8000').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   JWT_SECRET: z.string().default('your-super-secret-key-minimum-32-chars-long'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),

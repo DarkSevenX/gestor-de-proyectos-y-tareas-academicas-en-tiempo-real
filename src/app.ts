@@ -21,9 +21,11 @@ import adminRoutes from './routes/adminRoutes'
 import chatbotRoutes from './routes/chatbotRoutes'
 import activityLogRoutes from './routes/activityLogRoutes'
 import dashboardRoutes from './routes/dashboardRoutes'
+import dotenf from 'dotenv'
+dotenf.config()
 
 const app = express()
-const port = config.PORT
+const port = process.env.PORT || 8000
 
 // Middleware de seguridad básico
 app.use(express.json({ limit: '10mb' }))
