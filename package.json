@@ -40,7 +40,7 @@
   "scripts": {
     "dev": "npx ts-node-dev --no-warnings src/index.ts",
     "build": "npx tsc",
-    "start": "node --no-warnings main.js"
+    "start": "node dist/app.js"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

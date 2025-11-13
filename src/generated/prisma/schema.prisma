@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   Int                   @id @default(autoincrement())
+  username             String                @unique
+  role                 String                @default("ALUMNO") // ALUMNO, TUTOR o ADMIN
+  firstName            String?
+  lastName             String?
+  email                String?               @unique
+  profileComplete      Boolean               @default(false)
+  status               String                @default("PENDING") // PENDING, APPROVED, REJECTED
+  password             String
+  googleId             String?               @unique
+  googleAccessToken    String?
+  googleRefreshToken   String?
+  googleTokenExpiry    DateTime?
+  calendarId           String?
+  projects             Project[]             @relation("ProjectParticipants")
+  tasks                Task[]                @relation("UserTasks")
+  tutorProjects        Project[]             @relation("ProjectTutor")
+  tutoredTasks         Task[]                @relation("TutorTasks")
+  chatMessages         ChatMessage[]         @relation("ChatUser")
+  receivedMessages     ChatMessage[]         @relation("MessageRecipient")
+  notifications        Notification[]        @relation("UserNotifications")
+  reminders            Reminder[]            @relation("UserReminders")
+  studentSubmissions   Submission[]          @relation("StudentSubmissions")
+  tutorGradings        Submission[]          @relation("TutorGradings")
+  activityLogs         ActivityLog[]         @relation("UserActivityLogs")
+  createdExams         Exam[]                @relation("ExamCreator")
+  examSubmissions      ExamSubmission[]      @relation("ExamStudent")
+  chatbotConversations ChatbotConversation[] @relation("UserChatbotConversations")
+}
+
+model Project {
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String?
+  startDate     DateTime?
+  endDate       DateTime?
+  status        String // Planificación, En progreso, Completado, Pausado
+  googleEventId String? // ID del evento en Google Calendar
+  tasks         Task[]
+  participants  User[]    @relation("ProjectParticipants")
+  tutor         User?     @relation("ProjectTutor", fields: [tutorId], references: [id])
+  tutorId       Int?
+}
+
+model Task {
+  id            Int          @id @default(autoincrement())
+  name          String
+  description   String?
+  dueDate       DateTime?
+  priority      String // Baja, Media, Alta
+  status        String // Pendiente, En progreso, Completada, Bloqueada
+  type          String       @default("project") // "daily" o "project"
+  googleEventId String? // ID del evento en Google Calendar
+  project       Project?     @relation(fields: [projectId], references: [id])
+  projectId     Int?
+  responsible   User         @relation("UserTasks", fields: [responsibleId], references: [id])
+  responsibleId Int
+  tutor         User?        @relation("TutorTasks", fields: [tutorId], references: [id])
+  tutorId       Int?
+  submissions   Submission[]
+}
+
+model ChatMessage {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("ChatUser", fields: [userId], references: [id])
+  message     String
+  timestamp   DateTime @default(now())
+  recipientId Int? // Para mensajes privados
+  recipient   User?    @relation("MessageRecipient", fields: [recipientId], references: [id])
+  isPrivate   Boolean  @default(false)
+}
+
+model Notification {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("UserNotifications", fields: [userId], references: [id])
+  message     String
+  type        String // task_assigned, project_assigned, deadline_reminder, status_update, etc.
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  relatedId   Int? // ID de la tarea o proyecto relacionado
+  relatedType String? // "task" o "project"
+}
+
+model Reminder {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation("UserReminders", fields: [userId], references: [id])
+  title       String
+  description String?
+  scheduledAt DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  relatedId   Int? // ID de la tarea o proyecto relacionado
+  relatedType String? // "task" o "project"
+}
+
+model File {
+  id           Int         @id @default(autoincrement())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  uploadedAt   DateTime    @default(now())
+  submission   Submission? @relation(fields: [submissionId], references: [id])
+  submissionId Int?
+}
+
+model Submission {
+  id           Int       @id @default(autoincrement())
+  taskId       Int
+  task         Task      @relation(fields: [taskId], references: [id])
+  studentId    Int
+  student      User      @relation("StudentSubmissions", fields: [studentId], references: [id])
+  submittedAt  DateTime  @default(now())
+  content      String? // Texto adicional del estudiante
+  grade        Float? // Calificación del tutor (0.0-5.0)
+  feedback     String? // Comentarios del tutor
+  gradedAt     DateTime?
+  gradedBy     Int? // ID del tutor que calificó
+  gradedByUser User?     @relation("TutorGradings", fields: [gradedBy], references: [id])
+  status       String    @default("submitted") // "submitted", "graded", "returned"
+  files        File[]
+}
+
+model ActivityLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation("UserActivityLogs", fields: [userId], references: [id])
+  action     String // CREATE, UPDATE, DELETE, STATUS_CHANGE, ASSIGN, etc.
+  entityType String // TASK, PROJECT, USER, CHAT_MESSAGE, etc.
+  entityId   Int // ID de la entidad afectada
+  details    String? // Descripción detallada de la actividad
+  oldValues  String? // Valores anteriores en formato JSON
+  newValues  String? // Valores nuevos en formato JSON
+  timestamp  DateTime @default(now())
+}
+
+model ChatbotConversation {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation("UserChatbotConversations", fields: [userId], references: [id])
+  title     String?
+  messages  String // JSON array de mensajes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Exam {
+  id                 Int              @id @default(autoincrement())
+  title              String
+  topics             String // Temas especificados por el tutor (JSON array)
+  numQuestions       Int
+  timeLimit          Int // En minutos
+  generatedQuestions String // Preguntas generadas por IA (JSON string)
+  createdBy          Int // ID del tutor
+  createdByUser      User             @relation("ExamCreator", fields: [createdBy], references: [id])
+  assignedTo         String // IDs de estudiantes asignados (JSON string)
+  status             String           @default("active") // active, completed
+  createdAt          DateTime         @default(now())
+  submissions        ExamSubmission[]
+  questions          ExamQuestion[]
+}
+
+model ExamQuestion {
+  id            Int     @id @default(autoincrement())
+  examId        Int
+  exam          Exam    @relation(fields: [examId], references: [id])
+  question      String
+  options       String? // Opciones para múltiple choice (JSON string)
+  correctAnswer String // Respuesta correcta
+  type          String // multiple_choice, true_false, open_ended
+}
+
+model ExamSubmission {
+  id          Int      @id @default(autoincrement())
+  examId      Int
+  exam        Exam     @relation(fields: [examId], references: [id])
+  studentId   Int
+  student     User     @relation("ExamStudent", fields: [studentId], references: [id])
+  answers     String // Respuestas del estudiante (JSON string)
+  score       Float // Nota de 1.0 a 5.0
+  submittedAt DateTime @default(now())
+  review      String? // Revisión: correctas/incorrectas (JSON string)
+}
